@@ -1,5 +1,6 @@
 const express = require('express');
 const route = express.Router();
+const joi = require('joi');
 
 //bringing the connected database...
 const knex = require('../db.config/db.config')
@@ -29,17 +30,35 @@ route.get('/login', async (req, res) => {
 
 })
 
+const validation = (res, data) => {
+
+    const vSchema = joi.object({
+        name: joi.string().min(3).max(30).required(),
+        email: joi.string().email().min(10).max(50).required(),
+        password: joi.string().min(8).max(16).required()
+    })
+    const schemaValidate = vSchema.validate(data);
+    if (schemaValidate.error){
+        return res.status(500).json({
+            message: schemaValidate.error.message
+        })
+    }
+    else{
+        return schemaValidate.value;
+    }
+}
+
 route.post('/signup', async (req, res) => {
-    const data = await req.body;
+    const validatedData = await validation(res, req.body)
     try {
         const result = await knex('user')
-        .where({ email: `${data}` , password: `${data.password}`});
+        .where({ email: `${validatedData.email}` , password: `${validatedData.password}`});
 
-        if (result.length>0) {"cookie", token
+        if (result.length>0) {
             res.send('This account already exist!!');
         }
         else{
-            await knex('user').insert(data)
+            await knex('user').insert(validatedData)
             res.cookie("cookie", 0).send('You are Signed Up now.')
         }
 
@@ -61,15 +80,15 @@ route.get("/data", accessToken, async (req, res) => {
 })
 
 route.put('/update/:id', async(req, res) => {
-    const data = await req.body;
+    const validatedData = await validation(res, req.body)
     try {
-        const result = await knex('user')
-        .where({ email: `${data.email}`, password: `${data.password}` });
+        const result = await knex('user') 
+        .where({ email: `${validatedData.email}`, password: `${validatedData.password}` });
         if (result.length>0) {
             res.send('This account already exist!!')
         }
         else{
-            const result2 = await knex('user').where({id: req.params.id}).update(data)
+            const result2 = await knex('user').where({id: req.params.id}).update(validatedData)
             console.log(result2);
             if (result2==1){
                 res.send('Your account is updated.')
